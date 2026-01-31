@@ -90,8 +90,8 @@
         }
         
         .text-side { 
-            flex: 0.7; display: flex; flex-direction: column; justify-content: center; 
-            padding-left: 5px; min-width: 0; 
+            flex: 0.7; display: flex; flex-direction: column; justify-content: flex-start; 
+            padding: 10px 5px; min-width: 0; 
         }
         
         .visual-side { 
@@ -105,14 +105,14 @@
         }
         
         .msg-box { 
-            font-size: 1.5em; font-weight: 800; color: #222; 
-            line-height: 1.4; white-space: normal; 
+            font-size: 1.4em; font-weight: 800; color: #222; 
+            line-height: 1.4; white-space: normal; margin-bottom: 20px;
         }
         
         .def-box {
             background: #fffbeb; border: 2px solid #f59e0b;
             padding: 8px; border-radius: 8px; margin: 10px 0;
-            font-size: 0.85em; color: #333; text-align: left;
+            font-size: 0.75em; color: #333; text-align: left;
         }
         
         /* アニメーション要素 */
@@ -170,14 +170,13 @@
         .cert-body.unlocked { filter: blur(0); opacity: 1; background: #dcfce7; border-color: var(--server-color); }
 
         .action-btn { 
-            position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); 
-            background: #334155; color: white; border: none; padding: 15px 50px; 
-            font-size: 1.5em; border-radius: 50px; cursor: pointer; transition: 0.2s; 
+            background: #334155; color: white; border: none; padding: 12px 30px; 
+            font-size: 1.3em; border-radius: 50px; cursor: pointer; transition: 0.2s; 
             box-shadow: 0 5px 15px rgba(0,0,0,0.3); white-space: nowrap; font-weight: 900;
-            z-index: 100;
+            width: fit-content; align-self: flex-start;
         }
-        .action-btn:hover { background: #475569; transform: translateX(-50%) scale(1.05); }
-        .action-btn:disabled { background: #cbd5e1; cursor: not-allowed; transform: translateX(-50%); }
+        .action-btn:hover { background: #475569; transform: scale(1.05); }
+        .action-btn:disabled { background: #cbd5e1; cursor: not-allowed; transform: none; }
 
         @keyframes unlockShake {
             0% { transform: rotate(0deg); } 25% { transform: rotate(-15deg); } 50% { transform: rotate(15deg); } 75% { transform: rotate(-5deg); } 100% { transform: rotate(0deg); }
@@ -234,6 +233,7 @@
                 「発行申請」ボタンを<br>押してください。<br><br>
                 サーバが認証局(CA)へ<br>公開鍵を送ります。
             </div>
+            <button id="btn" class="action-btn" onclick="nextStep()">発行申請 📝</button>
         </div>
 
         <div class="visual-side" id="visual-area">
@@ -257,8 +257,6 @@
             <div id="hash-decrypted" class="hash-val" style="top:20%; left:70%;">#️⃣正解ハッシュ(復号)</div>
             <div id="hash-calc" class="hash-val" style="top:50%; left:70%;">#️⃣計算ハッシュ(原紙)</div>
         </div>
-
-        <button id="btn" class="action-btn" onclick="nextStep()">発行申請 📝</button>
     </div>
 </div>
 
@@ -346,7 +344,6 @@
                 const caInv = document.getElementById('inv-ca');
                 caInv.lastChild.remove(); 
                 
-                // ★アイコン変更: 📄🔓 (公開鍵が乗った原紙)
                 const draftItem = document.createElement('div');
                 draftItem.className = 'item';
                 draftItem.id = 'draft-cert';
@@ -358,7 +355,6 @@
                     
                     setTimeout(() => {
                         unhighlightItem('src-ca-privkey');
-                        // ★アイコン変更: 📜🔓 (完成した証明書)
                         draftItem.innerHTML = `📜🔓 <span>CA署名つき証明書</span> <span class="note" style="color:#d97706; font-weight:bold">Signed</span>`;
                         draftItem.classList.add('blink');
                         draftItem.id = 'signed-cert';
@@ -398,10 +394,9 @@
                     証明書を受信しました。<br>
                     <div class="def-box">
                     <b>【CA署名つき証明書】</b><br>
-                    ＝ <b>サーバ証明書(原紙)</b><br>
-                    ＋ <b>ハッシュのCA秘密鍵暗号文(署名)</b>
+                    ＝ <b>証明書(原紙)</b><br>
+                    ＋ <b>署名(CA秘密鍵での暗号文)</b>
                     </div>
-                    まだ検証前なので信用できません。
                 `;
                 
                 const cert = document.getElementById('cert');
@@ -440,7 +435,7 @@
             }, 50);
 
             setTimeout(() => {
-                targetSeal.classList.add('shaking'); // ガチャガチャ
+                targetSeal.classList.add('shaking'); 
                 
                 setTimeout(() => {
                     const hashDec = document.getElementById('hash-decrypted');
