@@ -3,7 +3,7 @@
 <html lang="ja"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HTTPSの仕組み(SSL/TLS,セッション鍵)</title>
+    <title>HTTPSの仕組み：公開鍵アイコン入り証明書版</title>
     <style>
         /* --- 共通設定 --- */
         :root {
@@ -493,7 +493,7 @@
                 msg.innerHTML = "できた申請書が<br><b>CAに届きました。</b><br>秘密鍵は送りません。";
 
                 setTimeout(() => {
-                    msg.innerHTML = "CAは<br><b>『www.rarara.jp のサーバ証明書』</b><br>を作って<b>署名</b>します。";
+                    msg.innerHTML = "CAはまず<b>証明書の原紙</b>を作ります。<div class='def-box'>原紙 ＝ ①②を書式に整えただけ。<br>これだけなら<b>誰でも作れる</b>。</div>";
 
                     const caInv = document.getElementById('inv-ca');
                     const csrItem = document.getElementById('csr-item');
@@ -502,7 +502,7 @@
                     const draftItem = document.createElement('div');
                     draftItem.className = 'item';
                     draftItem.id = 'draft-cert';
-                    draftItem.innerHTML = `📄🔓 <span>www.rarara.jp のサーバ証明書</span> <span class="note">未署名</span>`;
+                    draftItem.innerHTML = `📄🔓 <span>www.rarara.jp の証明書の原紙</span> <span class="note">未署名</span>`;
                     caInv.appendChild(draftItem);
 
                     setTimeout(() => {
@@ -511,21 +511,21 @@
 
                         msg.innerHTML = "<b>「署名する」</b>とは…<br><div class='def-box'>証明書の中身①②を<b class='sig-word'>ハッシュ化</b>し、<br>それを<b class='sig-word'>CA秘密鍵🔏で暗号化</b>すること</div>";
 
-                        setTimeout(() => { document.getElementById('lab-doc').classList.add('on'); }, 300);
-                        setTimeout(() => { document.getElementById('lab-a1').classList.add('on'); }, 1000);
+                        setTimeout(() => { document.getElementById('lab-doc').classList.add('on'); }, 800);
+                        setTimeout(() => { document.getElementById('lab-a1').classList.add('on'); }, 2600);
                         setTimeout(() => {
                             document.getElementById('lab-hash').classList.add('on');
                             msg.innerHTML = "まず中身①②を<b>ハッシュ化</b>。<br><div class='def-box'>ハッシュ ＝ 中身から計算する短い値。<br>中身が1文字でも変わると別の値になる。</div>";
-                        }, 1600);
+                        }, 4400);
                         setTimeout(() => {
                             document.getElementById('lab-a2').classList.add('on');
                             highlightItem('src-ca-privkey');
                             msg.innerHTML = "つぎに そのハッシュを<br><b>CA秘密鍵🔏で暗号化</b>。<br><div class='def-box'>CAしか持っていない鍵なので、<br>CA以外はこれを作れない。</div>";
-                        }, 2600);
+                        }, 8200);
                         setTimeout(() => {
                             document.getElementById('lab-sig').classList.add('on');
                             unhighlightItem('src-ca-privkey');
-                            msg.innerHTML = "<b>🔒 これが③「CAの署名」。</b><br><div class='def-box'><b class='sig-word'>署名 ＝ ①②のハッシュを<br>CA秘密鍵で暗号化したもの</b></div>";
+                            msg.innerHTML = "<b>🔒 これが③「CAの署名」。</b><div class='def-box'><b class='sig-word'>署名 ＝ ①②のハッシュを<br>CA秘密鍵で暗号化したもの</b><br>📄原紙 ＋ ③署名 → 📜正式なサーバ証明書</div>";
 
                             draftItem.innerHTML = `📜🔓 <span>www.rarara.jp のサーバ証明書</span> <span class="note" style="color:#d97706; font-weight:bold">🔒CA署名つき</span>`;
                             draftItem.classList.add('blink');
@@ -533,9 +533,9 @@
 
                             btn.innerText = "サーバへ送る 📨";
                             btn.disabled = false;
-                        }, 3600);
-                    }, 1800);
-                }, 1200);
+                        }, 12000);
+                    }, 3200);
+                }, 2600);
             });
         }
 
@@ -568,6 +568,7 @@
                 msg.innerHTML = `
                     <b>サーバ証明書を受信！</b><br>
                     <div class="def-box">
+                    <b style="color:#b45309;">証明書 ＝ ①②の組を<br>CAが③で保証したもの</b><br>
                     <b>📜🔓 www.rarara.jp のサーバ証明書</b><br>
                     ①🌐 www.rarara.jp<br>
                     ②🔓 サーバ公開鍵<br>
@@ -658,13 +659,13 @@
                                 
                                 setTimeout(() => {
                                     hashDec.style.opacity = 0; 
-                                }, 2500);
+                                }, 6000);
 
-                            }, 1200);
-                        }, 1500);
-                    }, 1500);
-                }, 1200);
-            }, 1600);
+                            }, 2600);
+                        }, 4500);
+                    }, 2000);
+                }, 2200);
+            }, 2000);
         }
 
         // --- Step 5: セッション鍵生成 ---
@@ -728,9 +729,9 @@
                             btn.innerText = "サーバで復号 🗝️";
                             btn.disabled = false;
                         }, 'dest-capsule');
-                    }, 2200);
-                }, 1200);
-            }, 400);
+                    }, 3500);
+                }, 2000);
+            }, 700);
         }
 
         // --- Step 7: 復号と完了 ---
@@ -787,8 +788,8 @@
                     document.getElementById('visual-area').innerHTML = '<div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:2.2em; font-weight:900; color:#10b981; width:100%; text-align:center;">✅ www.rarara.jp を確認<br><span class="session-blink">🔑</span> セッション鍵を共有 <span class="session-blink">🔑</span><br><span style="font-size:0.78em; color:#1e3a8a; font-weight:900;">HTTPSはこのセッション鍵でやり取り</span><br><span style="font-size:0.68em; color:#555;">HTTP + TLS = HTTPS</span></div>';
                     btn.style.display = "none";
                     setTimeout(() => keyAnim.remove(), 500);
-                }, 1500);
-            }, 1500);
+                }, 2400);
+            }, 2200);
         }
     }
 </script>
