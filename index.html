@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
+<!-- saved from url=(0032)https://ilrmath.github.io/https/ -->
+<html lang="ja"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HTTPSの仕組み：公開鍵アイコン入り証明書版</title>
+    <title>HTTPSの仕組み(SSL/TLS,セッション鍵)</title>
     <style>
         /* --- 共通設定 --- */
         :root {
@@ -125,9 +125,9 @@
         .flying-item {
             position: fixed; z-index: 9999; 
             background: white; padding: 10px 20px; border-radius: 10px; 
-            border: 3px solid #333; font-weight: bold; font-size: 1.5em;
+            border: 3px solid #333; font-weight: bold; font-size: 1.35em;
             box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-            transition: all 1s cubic-bezier(0.25, 1, 0.5, 1);
+            transition: all 2.6s cubic-bezier(0.25, 1, 0.5, 1);
             pointer-events: none; display: flex; align-items: center; justify-content: space-between; gap: 10px;
             box-sizing: border-box;
         }
@@ -138,8 +138,9 @@
         }
 
         .hash-val {
-            position: absolute; background: #333; color: #fff; padding: 5px 10px;
-            border-radius: 5px; font-size: 0.9em; font-family: monospace;
+            position: absolute; background: #333; color: #fff; padding: 6px 10px;
+            border-radius: 5px; font-size: 0.78em; font-weight: bold;
+            line-height: 1.4; text-align: center; white-space: nowrap;
             opacity: 0; transition: all 0.8s; z-index: 50;
         }
         .hash-match {
@@ -189,6 +190,61 @@
         }
         .blink { animation: flash 0.6s ease-in-out 3; }
 
+        .domain-match {
+            position: absolute; left: 50%; top: 72%; transform: translate(-50%, -50%) scale(0.9);
+            background: #eff6ff; border: 3px solid #3b82f6; color: #1e3a8a;
+            padding: 10px 16px; border-radius: 12px; font-size: 1.05em; font-weight: 900;
+            opacity: 0; transition: all 0.5s; z-index: 60; text-align: center; min-width: 320px;
+            box-shadow: 0 8px 20px rgba(59,130,246,.18);
+        }
+        .domain-match.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+
+        @keyframes sessionPulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.35; transform: scale(1.12); }
+        }
+        .session-blink {
+            display: inline-block;
+            animation: sessionPulse 1s ease-in-out infinite;
+        }
+
+        /* --- 「署名する」の中身を見せるパネル --- */
+        .sign-lab {
+            position: absolute; left: 50%; top: 50%;
+            transform: translate(-50%, -50%);
+            width: 95%; box-sizing: border-box;
+            background: #fff; border: 3px solid var(--ca-color); border-radius: 12px;
+            padding: 10px 8px; box-shadow: 0 8px 20px rgba(0,0,0,.15);
+            opacity: 0; transition: opacity .5s; z-index: 40; pointer-events: none;
+        }
+        .sign-lab.show { opacity: 1; }
+        .lab-title {
+            text-align: center; font-weight: 900; font-size: 1.05em; color: #b45309;
+            margin-bottom: 10px; line-height: 1.3;
+        }
+        .lab-flow { display: flex; align-items: center; justify-content: center; gap: 2px; }
+        .lab-node {
+            flex: 1; min-width: 0;
+            background: #f8fafc; border: 2px solid #cbd5e1; border-radius: 10px;
+            padding: 6px 3px; text-align: center; font-size: 0.78em; font-weight: bold;
+            line-height: 1.25; opacity: .2; transition: all .5s;
+        }
+        .lab-node .ic { display: block; font-size: 28px; line-height: 1.15; }
+        .lab-node.on { opacity: 1; border-color: var(--ca-color); background: #fffbeb; transform: scale(1.05); }
+        .lab-node.sig.on { border-color: #22c55e; background: #dcfce7; }
+        .lab-arrow {
+            font-size: 0.7em; font-weight: 900; color: #b45309; text-align: center;
+            line-height: 1.25; width: 72px; flex-shrink: 0; opacity: .15; transition: opacity .5s;
+        }
+        .lab-arrow.on { opacity: 1; }
+
+        .sig-hint {
+            font-size: .72em; color: #b45309; font-weight: bold;
+            line-height: 1.35; text-align: center; margin-top: 6px;
+            background: #fffbeb; border-radius: 6px; padding: 4px 6px;
+        }
+        .def-box b.sig-word { color: #b45309; }
+
     </style>
 </head>
 <body>
@@ -196,15 +252,15 @@
 <div class="container">
     <header>
         <h1>HTTPS 通信の仕組み</h1>
-        <p class="subtitle">〜署名発行から暗号化通信まで〜</p>
+        <p class="subtitle">〜証明書でサーバ確認 → セッション鍵で暗号化（TLS）〜</p>
     </header>
 
     <div class="stage-top">
         <div class="person ca">
             <div class="avatar">🏛️</div>
-            <span class="role">認証局</span>
+            <span class="role">認証局(CA)</span>
             <div class="inventory" id="inv-ca">
-                <div class="item secret-key" id="src-ca-privkey"><span>🗝️ CA秘密鍵</span> <span class="note">厳重保管</span></div>
+                <div class="item secret-key" id="src-ca-privkey"><span>🔏 CA秘密鍵</span> <span class="note">CAだけ</span></div>
             </div>
         </div>
         
@@ -212,16 +268,17 @@
             <div class="avatar">☁️🗄️</div>
             <span class="role">Webサーバ</span>
             <div class="inventory" id="inv-server">
-                <div class="item secret-key" id="src-server-privkey"><span>🗝️ サーバ秘密鍵</span> <span class="note">絶対秘密</span></div>
-                <div class="item" id="src-server-pubkey-raw"><span>🔓 サーバ公開鍵</span></div>
+                <div class="item" id="src-domain"><span>🌐 www.rarara.jp</span> <span class="note">サイト名</span></div>
+                <div class="item secret-key" id="src-server-privkey"><span>🗝️ サーバ秘密鍵</span> <span class="note">外に出さない</span></div>
+                <div class="item" id="src-server-pubkey-raw"><span>🔓 サーバ公開鍵</span> <span class="note">公開OK</span></div>
             </div>
         </div>
         
         <div class="person client">
             <div class="avatar">📱💻</div>
-            <span class="role">あなた(ユーザ)</span>
+            <span class="role">あなたのPC</span>
             <div class="inventory" id="inv-client">
-                <div class="item" id="src-ca-pubkey"><span>🛡️ CA公開鍵</span> <span class="note">初期装備</span></div>
+                <div class="item" id="src-ca-pubkey"><span>🛡️ CA公開鍵</span> <span class="note">ルート証明書内</span></div>
             </div>
         </div>
     </div>
@@ -229,11 +286,8 @@
     <div class="main-stage">
         <div class="text-side">
             <div><span id="badge" class="phase-badge">Start</span></div>
-            <div class="msg-box" id="msg">
-                「発行申請」ボタンを<br>押してください。<br><br>
-                サーバが認証局(CA)へ<br>公開鍵を送ります。
-            </div>
-            <button id="btn" class="action-btn" onclick="nextStep()">発行申請 📝</button>
+            <div class="msg-box" id="msg">まず、Webサーバが<br><b>「www.rarara.jp のサーバです」</b>と<br>CAに証明書を申請します。</div>
+            <button id="btn" class="action-btn" onclick="nextStep()">証明書を申請 📝</button>
         </div>
 
         <div class="visual-side" id="visual-area">
@@ -241,12 +295,14 @@
                 <div class="cert-seal-container">
                     <div class="cert-seal" id="seal">🔒 CAの署名</div>
                 </div>
-                <div style="font-weight:bold; font-size: 1.3em; margin-bottom:5px;">📜🔓 CA署名つき証明書</div>
+                <div style="font-weight:bold; font-size: 1.3em; margin-bottom:5px;">📜🔓 www.rarara.jp のサーバ証明書</div>
                 <div id="cert-body" class="cert-body">
                     <div style="font-size:0.8em; color:#666; margin-bottom:5px;">▼ 中身</div>
-                    <div style="font-size:50px; margin: 5px;">🔓</div>
-                    <div style="font-weight:bold; color:var(--server-color); font-size:1.2em;">サーバの公開鍵</div>
-                    <div style="font-size:0.8em; color:#666;">発行元: 認証局(CA)</div>
+                    <div style="font-weight:bold; color:#1d4ed8; font-size:1.15em; margin:4px;">①🌐 www.rarara.jp</div>
+                    <div style="font-size:42px; margin: 3px;">②🔓</div>
+                    <div style="font-weight:bold; color:var(--server-color); font-size:1.1em;">サーバ公開鍵</div>
+                    <div style="font-size:0.9em; color:#666; font-weight:bold; margin-top:4px;">③🔒 CAの署名</div>
+                    <div class="sig-hint">①②のハッシュを<br>CA秘密鍵🔏で暗号化したもの</div>
                 </div>
             </div>
             
@@ -254,8 +310,20 @@
             <div id="using-key" class="obj" style="font-size:100px; color:var(--server-color);">🔓</div>
             <div id="capsule" class="obj" style="font-size:140px;">💊</div>
 
-            <div id="hash-decrypted" class="hash-val" style="top:20%; left:70%;">#️⃣正解ハッシュ(復号)</div>
-            <div id="hash-calc" class="hash-val" style="top:50%; left:70%;">#️⃣計算ハッシュ(原紙)</div>
+            <div id="sign-lab" class="sign-lab">
+                <div class="lab-title">「署名する」＝ ハッシュ化 → 暗号化</div>
+                <div class="lab-flow">
+                    <div class="lab-node" id="lab-doc"><span class="ic">📄</span>①🌐 www.rarara.jp<br>②🔓 サーバ公開鍵</div>
+                    <div class="lab-arrow" id="lab-a1">まず<br>ハッシュ化 ▶▶</div>
+                    <div class="lab-node" id="lab-hash"><span class="ic">#️⃣</span>①②のハッシュ値<br>a3f9c1…</div>
+                    <div class="lab-arrow" id="lab-a2">つぎに CA秘密鍵🔏<br>で暗号化 ▶▶</div>
+                    <div class="lab-node sig" id="lab-sig"><span class="ic">🔒</span>これが③<br>CAの署名</div>
+                </div>
+            </div>
+
+            <div id="hash-decrypted" class="hash-val" style="top:20%; left:70%;">③🔒署名をCA公開鍵で復号<br>#️⃣ a3f9c1…</div>
+            <div id="hash-calc" class="hash-val" style="top:50%; left:70%;">①②📄中身を自分でハッシュ化<br>#️⃣ a3f9c1…</div>
+            <div id="domain-match" class="domain-match">✅ URL と証明書の名前が一致<br>www.rarara.jp</div>
         </div>
     </div>
 </div>
@@ -274,6 +342,86 @@
     function unhighlightItem(itemId) {
         const item = document.getElementById(itemId);
         if (item) item.classList.remove('highlighted');
+    }
+
+    function makeFlyerFromElement(sourceElem, html, extraClass = '') {
+        const rect = sourceElem.getBoundingClientRect();
+        const flyer = document.createElement('div');
+        flyer.className = 'flying-item ' + extraClass;
+        flyer.innerHTML = html;
+        flyer.style.border = "2px solid #333";
+        flyer.style.left = rect.left + 'px';
+        flyer.style.top = rect.top + 'px';
+        flyer.style.width = rect.width + 'px';
+        flyer.style.height = rect.height + 'px';
+        document.body.appendChild(flyer);
+        return flyer;
+    }
+
+    function combineAndSendRequest(domainId, keyId, destContainerId, callback) {
+        const domainElem = document.getElementById(domainId);
+        const keyElem = document.getElementById(keyId);
+        const destContainer = document.getElementById(destContainerId);
+
+        const placeholder = document.createElement('div');
+        placeholder.className = 'item';
+        placeholder.style.visibility = 'hidden';
+        placeholder.style.opacity = '0';
+        placeholder.innerHTML = `📄🔓 <span>www.rarara.jp ＋ サーバ公開鍵</span> <span class="note" style="color:#1d4ed8; font-weight:bold">New!</span>`;
+        destContainer.appendChild(placeholder);
+
+        const mergeX = window.innerWidth * 0.53;
+        const mergeY = window.innerHeight * 0.58;
+        const endRect = placeholder.getBoundingClientRect();
+
+        const domainFlyer = makeFlyerFromElement(domainElem, `🌐 <span>www.rarara.jp</span>`);
+        const keyFlyer = makeFlyerFromElement(keyElem, `🔓 <span>サーバ公開鍵</span>`);
+
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                domainFlyer.style.left = (mergeX - 170) + 'px';
+                domainFlyer.style.top = (mergeY - 40) + 'px';
+                domainFlyer.style.width = '220px';
+                keyFlyer.style.left = (mergeX + 20) + 'px';
+                keyFlyer.style.top = (mergeY - 40) + 'px';
+                keyFlyer.style.width = '220px';
+            });
+        });
+
+        setTimeout(() => {
+            domainFlyer.remove();
+            keyFlyer.remove();
+
+            const merged = document.createElement('div');
+            merged.className = 'flying-item';
+            merged.innerHTML = `📄🔓 <span>www.rarara.jp ＋ サーバ公開鍵</span>`;
+            merged.style.border = "2px solid #333";
+            merged.style.left = (mergeX - 130) + 'px';
+            merged.style.top = (mergeY - 30) + 'px';
+            merged.style.width = '300px';
+            merged.style.height = '72px';
+            document.body.appendChild(merged);
+
+            setTimeout(() => {
+                merged.style.left = endRect.left + 'px';
+                merged.style.top = endRect.top + 'px';
+                merged.style.width = endRect.width + 'px';
+                merged.style.height = endRect.height + 'px';
+            }, 400);
+
+            setTimeout(() => {
+                merged.remove();
+                placeholder.remove();
+
+                const newItem = document.createElement('div');
+                newItem.className = 'item blink';
+                newItem.id = 'csr-item';
+                newItem.innerHTML = `📄🔓 <span>www.rarara.jp ＋ サーバ公開鍵</span> <span class="note" style="color:#1d4ed8; font-weight:bold">New!</span>`;
+                destContainer.appendChild(newItem);
+
+                if (callback) callback();
+            }, 3600);
+        }, 3400);
     }
 
     // アイテム移動関数
@@ -323,7 +471,7 @@
             destContainer.appendChild(newItem);
 
             if (callback) callback();
-        }, 1000);
+        }, 2800);
     }
 
     function nextStep() {
@@ -333,51 +481,78 @@
         // --- Step 1: 発行申請 ---
         if (step === 1) {
             badge.innerText = "Step 0: 証明書の発行申請";
-            badge.style.background = "#f59e0b"; // CA色
-            msg.innerHTML = "サーバが認証局(CA)へ<br><b>「サーバ公開鍵🔓」</b>を<br>提出します。";
+            badge.style.background = "#f59e0b";
+            msg.innerHTML = "サーバはまず<br><b>🌐 www.rarara.jp</b> と<br><b>🔓 サーバ公開鍵</b>を合わせます。";
+            highlightItem('src-domain');
+            highlightItem('src-server-pubkey-raw');
 
-            transferItem('src-server-pubkey-raw', 'inv-ca', 'サーバ公開鍵', '🔓', () => {
-                document.getElementById('src-server-pubkey-raw').remove();
-                
-                msg.innerHTML = "認証局(CA)は、<br>預かった鍵を<b>「証明書の原紙📄🔓」</b>にし<br><b>「CA秘密鍵」</b>で署名します。";
-                
-                const caInv = document.getElementById('inv-ca');
-                caInv.lastChild.remove(); 
-                
-                const draftItem = document.createElement('div');
-                draftItem.className = 'item';
-                draftItem.id = 'draft-cert';
-                draftItem.innerHTML = `📄🔓 <span>証明書の原紙</span> <span class="note">未署名</span>`;
-                caInv.appendChild(draftItem);
+            combineAndSendRequest('src-domain', 'src-server-pubkey-raw', 'inv-ca', () => {
+                unhighlightItem('src-domain');
+                unhighlightItem('src-server-pubkey-raw');
+
+                msg.innerHTML = "できた申請書が<br><b>CAに届きました。</b><br>秘密鍵は送りません。";
 
                 setTimeout(() => {
-                    highlightItem('src-ca-privkey');
-                    
-                    setTimeout(() => {
-                        unhighlightItem('src-ca-privkey');
-                        draftItem.innerHTML = `📜🔓 <span>CA署名つき証明書</span> <span class="note" style="color:#d97706; font-weight:bold">Signed</span>`;
-                        draftItem.classList.add('blink');
-                        draftItem.id = 'signed-cert';
+                    msg.innerHTML = "CAは<br><b>『www.rarara.jp のサーバ証明書』</b><br>を作って<b>署名</b>します。";
 
-                        btn.innerText = "サーバへ送る 📨";
-                        btn.disabled = false;
-                    }, 1000);
-                }, 800);
+                    const caInv = document.getElementById('inv-ca');
+                    const csrItem = document.getElementById('csr-item');
+                    if (csrItem) csrItem.remove();
+
+                    const draftItem = document.createElement('div');
+                    draftItem.className = 'item';
+                    draftItem.id = 'draft-cert';
+                    draftItem.innerHTML = `📄🔓 <span>www.rarara.jp のサーバ証明書</span> <span class="note">未署名</span>`;
+                    caInv.appendChild(draftItem);
+
+                    setTimeout(() => {
+                        const lab = document.getElementById('sign-lab');
+                        lab.classList.add('show');
+
+                        msg.innerHTML = "<b>「署名する」</b>とは…<br><div class='def-box'>証明書の中身①②を<b class='sig-word'>ハッシュ化</b>し、<br>それを<b class='sig-word'>CA秘密鍵🔏で暗号化</b>すること</div>";
+
+                        setTimeout(() => { document.getElementById('lab-doc').classList.add('on'); }, 300);
+                        setTimeout(() => { document.getElementById('lab-a1').classList.add('on'); }, 1000);
+                        setTimeout(() => {
+                            document.getElementById('lab-hash').classList.add('on');
+                            msg.innerHTML = "まず中身①②を<b>ハッシュ化</b>。<br><div class='def-box'>ハッシュ ＝ 中身から計算する短い値。<br>中身が1文字でも変わると別の値になる。</div>";
+                        }, 1600);
+                        setTimeout(() => {
+                            document.getElementById('lab-a2').classList.add('on');
+                            highlightItem('src-ca-privkey');
+                            msg.innerHTML = "つぎに そのハッシュを<br><b>CA秘密鍵🔏で暗号化</b>。<br><div class='def-box'>CAしか持っていない鍵なので、<br>CA以外はこれを作れない。</div>";
+                        }, 2600);
+                        setTimeout(() => {
+                            document.getElementById('lab-sig').classList.add('on');
+                            unhighlightItem('src-ca-privkey');
+                            msg.innerHTML = "<b>🔒 これが③「CAの署名」。</b><br><div class='def-box'><b class='sig-word'>署名 ＝ ①②のハッシュを<br>CA秘密鍵で暗号化したもの</b></div>";
+
+                            draftItem.innerHTML = `📜🔓 <span>www.rarara.jp のサーバ証明書</span> <span class="note" style="color:#d97706; font-weight:bold">🔒CA署名つき</span>`;
+                            draftItem.classList.add('blink');
+                            draftItem.id = 'signed-cert';
+
+                            btn.innerText = "サーバへ送る 📨";
+                            btn.disabled = false;
+                        }, 3600);
+                    }, 1800);
+                }, 1200);
             });
         }
 
         // --- Step 2: 発行完了 ---
         else if (step === 2) {
             badge.innerText = "Step 0: 発行完了";
-            msg.innerHTML = "<b>「CA署名つき証明書📜🔓」</b>が<br>認証局からサーバへ<br>発行されました。";
+            msg.innerHTML = "<b>📜🔓 www.rarara.jp のサーバ証明書</b>が<br>CAからWebサーバへ<br>送り返されます。";
 
-            transferItem('signed-cert', 'inv-server', 'CA署名つき証明書', '📜🔓', () => {
+            document.getElementById('sign-lab').classList.remove('show');
+
+            transferItem('signed-cert', 'inv-server', 'www.rarara.jp のサーバ証明書', '📜🔓', () => {
                 document.getElementById('signed-cert').remove();
                 
                 const serverInv = document.getElementById('inv-server');
                 serverInv.lastChild.id = 'src-cert-item';
 
-                msg.innerHTML = "これで準備完了です。<br><b>「接続開始」</b>を押すと<br>ユーザとの通信が始まります。";
+                msg.innerHTML = "準備完了。<br>次はあなたのPCが<br><b>www.rarara.jp</b>へ接続します。";
                 btn.innerText = "接続開始 🚀";
                 btn.disabled = false;
             });
@@ -387,15 +562,17 @@
         else if (step === 3) {
             badge.innerText = "Step 1: 証明書の提示";
             badge.style.background = "#10b981";
-            msg.innerHTML = "サーバがユーザへ、<br><b>「CA署名つき証明書」</b>を<br>送信しました。";
+            msg.innerHTML = "Webサーバ → あなたのPCへ<br><b>📜🔓 サーバ証明書</b>を送ります。";
 
-            transferItem('src-cert-item', 'inv-client', 'CA署名つき証明書', '📜🔓', () => {
+            transferItem('src-cert-item', 'inv-client', 'www.rarara.jp のサーバ証明書', '📜🔓', () => {
                 msg.innerHTML = `
-                    証明書を受信しました。<br>
+                    <b>サーバ証明書を受信！</b><br>
                     <div class="def-box">
-                    <b>【CA署名つき証明書】</b><br>
-                    ＝ <b>証明書(原紙)</b><br>
-                    ＋ <b>署名(CA秘密鍵での暗号文)</b>
+                    <b>📜🔓 www.rarara.jp のサーバ証明書</b><br>
+                    ①🌐 www.rarara.jp<br>
+                    ②🔓 サーバ公開鍵<br>
+                    ③🔒 CAの署名<br>
+                    <span style="color:#b45309;">　└ ①②のハッシュを<br>　　 CA秘密鍵で暗号化したもの</span>
                     </div>
                 `;
                 
@@ -403,7 +580,7 @@
                 cert.style.transform = "translate(-50%, -50%) scale(1)";
                 cert.style.opacity = "1";
                 
-                btn.innerText = "検証して開ける 🔍";
+                btn.innerText = "本物か確認 🔍";
                 btn.disabled = false;
             });
         }
@@ -412,7 +589,7 @@
         else if (step === 4) {
             badge.innerText = "Step 2: 証明書の検証";
             badge.style.background = "#3b82f6";
-            msg.innerHTML = "端末内の<br><b>「CA公開鍵🛡️」</b>で<br>署名を検証（復号）し<br>ハッシュ値を比較します。";
+            msg.innerHTML = "署名③は<b>①②のハッシュを暗号化したもの</b>。<br>PC内の<b>CA公開鍵🛡️</b>で<b>復号</b>すれば、<br>元の<b>ハッシュ#️⃣</b>が取り出せます。";
 
             const sourceKeyId = 'src-ca-pubkey';
             const sourceKey = document.getElementById(sourceKeyId);
@@ -432,7 +609,7 @@
                 keyAnim.style.left = (sealRect.left - 20) + 'px';
                 keyAnim.style.top = sealRect.top + 'px';
                 keyAnim.style.transform = "scale(1.2)";
-            }, 50);
+            }, 250);
 
             setTimeout(() => {
                 targetSeal.classList.add('shaking'); 
@@ -446,31 +623,34 @@
                     keyAnim.style.opacity = 0;
                     
                     hashCalc.style.opacity = 1;
+                    msg.innerHTML = "<b>2つのハッシュを比べます。</b><div class='def-box'>③🔒 署名をCA公開鍵で<b>復号</b>したハッシュ<br>①②📄 中身から<b>自分で計算</b>したハッシュ</div>";
                     
                     setTimeout(() => {
-                        hashDec.style.top = "35%"; hashDec.style.left = "30%";
-                        hashCalc.style.top = "35%"; hashCalc.style.left = "60%";
+                        hashDec.style.top = "30%"; hashDec.style.left = "6%";
+                        hashCalc.style.top = "30%"; hashCalc.style.left = "50%";
                         
                         setTimeout(() => {
-                            hashDec.style.left = "45%";
-                            hashCalc.style.left = "45%";
+                            hashDec.style.left = "28%";
+                            hashCalc.style.left = "28%";
                             
                             setTimeout(() => {
                                 hashCalc.style.opacity = 0;
-                                hashDec.innerHTML = "✅ 一致 (改ざんなし)";
+                                hashDec.innerHTML = "✅ ハッシュ一致<br>中身は改ざんされていない";
                                 hashDec.classList.add('hash-match');
                                 
                                 document.getElementById('cert').classList.add('verified');
                                 document.getElementById('cert-body').classList.add('unlocked');
                                 unhighlightItem(sourceKeyId);
                                 
-                                msg.innerHTML = "<b>ハッシュ値が一致！</b><br>改ざんされていないため<br><b>「サーバ公開鍵🔓」</b>は<br>本物だと証明されました。";
+                                const domainMatch = document.getElementById('domain-match');
+                                domainMatch.classList.add('show');
+                                msg.innerHTML = "<b>CA署名 OK！ URL名も一致！</b><div class='def-box'>CA公開鍵で戻せた ＝ <b>CA秘密鍵で暗号化された</b>もの<br>→ 署名を作れるのはCAだけ</div>→ この公開鍵は<b>www.rarara.jp のもの</b>と確認。";
 
                                 const invClient = document.getElementById('inv-client');
                                 const keyItem = document.createElement('div');
                                 keyItem.className = "item blink";
                                 keyItem.id = 'src-server-pubkey'; 
-                                keyItem.innerHTML = "🔓 <span>サーバ公開鍵</span> <span class='note'>(Get!)</span>";
+                                keyItem.innerHTML = "🔓 <span>www.rarara.jp の公開鍵</span> <span class='note'>確認済</span>";
                                 invClient.appendChild(keyItem);
 
                                 btn.innerText = "セッション鍵を作成 🔑";
@@ -478,21 +658,22 @@
                                 
                                 setTimeout(() => {
                                     hashDec.style.opacity = 0; 
-                                }, 1500);
+                                }, 2500);
 
-                            }, 600);
-                        }, 800);
-                    }, 800);
-                }, 600);
-            }, 900);
+                            }, 1200);
+                        }, 1500);
+                    }, 1500);
+                }, 1200);
+            }, 1600);
         }
 
         // --- Step 5: セッション鍵生成 ---
         else if (step === 5) {
             badge.innerText = "Step 3: 共通鍵の生成";
-            msg.innerHTML = "通信を暗号化するため、<br>ユーザ（あなた）が<br><b>「セッション鍵🔑」</b>を<br>生成しました。";
+            msg.innerHTML = "相手を確認できたので、<br>HTTPS通信に使う<br><b>セッション鍵🔑</b>を作ります。";
             
-            document.getElementById('cert').style.opacity = "0"; 
+            document.getElementById('cert').style.opacity = "0";
+            document.getElementById('domain-match').classList.remove('show'); 
             const commonKey = document.getElementById('common-key');
             commonKey.style.opacity = "1";
             commonKey.style.transform = "translate(-50%, -50%) scale(1)";
@@ -511,7 +692,7 @@
         // --- Step 6: 暗号化と送信 ---
         else if (step === 6) {
             badge.innerText = "Step 4: 暗号化と送信";
-            msg.innerHTML = "<b>「セッション鍵🔑」</b>を<br><b>「サーバ公開鍵🔓」</b>で<br>暗号化して送信します。";
+            msg.innerHTML = "セッション鍵🔑を<br><b>www.rarara.jp の公開鍵🔓</b>で<br>暗号化して送ります。";
 
             highlightItem('src-session-item');
             highlightItem('src-server-pubkey');
@@ -540,22 +721,22 @@
                     userKey.innerHTML = '🔑 <span>セッション鍵</span> <span class="note" style="color:#666;">(共有中)</span>';
 
                     setTimeout(() => {
-                        msg.innerHTML = "暗号化されたカプセルが<br>ユーザからサーバへ<br>送信されます。";
+                        msg.innerHTML = "暗号化したセッション鍵を<br>PC → www.rarara.jp へ<br>送ります。";
                         capsule.style.opacity = "0"; 
                         transferItem('capsule', 'inv-server', 'カプセル(暗号文)', '💊', () => {
-                            msg.innerHTML = "サーバに到着。<br><br>サーバはこれを<br>「秘密鍵」で復号します。";
+                            msg.innerHTML = "www.rarara.jp に到着。<br>サーバは自分の<br><b>秘密鍵🗝️</b>で復号します。";
                             btn.innerText = "サーバで復号 🗝️";
                             btn.disabled = false;
                         }, 'dest-capsule');
-                    }, 1000);
-                }, 600);
-            }, 100);
+                    }, 2200);
+                }, 1200);
+            }, 400);
         }
 
         // --- Step 7: 復号と完了 ---
         else if (step === 7) {
             badge.innerText = "Final: 復号と通信確立"; badge.style.background = "#333";
-            msg.innerHTML = "サーバは届いた<br><b>「カプセル💊」</b>を、<br><b>「サーバ秘密鍵🗝️」</b>で<br>復号します。";
+            msg.innerHTML = "サーバが<br><b>対応する秘密鍵🗝️</b>で<br>復号できれば、鍵の持ち主だと確認できます。";
 
             const privKeyId = 'src-server-privkey';
             const capsuleId = 'dest-capsule';
@@ -577,7 +758,7 @@
                 const capsuleRect = capsule.getBoundingClientRect();
                 keyAnim.style.left = (capsuleRect.left + 20) + 'px';
                 keyAnim.style.top = (capsuleRect.top + 20) + 'px';
-            }, 50);
+            }, 250);
 
             setTimeout(() => {
                 capsule.classList.add('shaking');
@@ -602,14 +783,15 @@
                     userKey.classList.add('blink');
                     userKey.innerHTML = '🔑 <span>セッション鍵</span> <span class="note" style="color:#10b981; font-weight:bold;">共有完了</span>';
 
-                    msg.innerHTML = "復号成功！<br>鍵を共有できました。<br><br>このセッション鍵で<br>Web通信の<br>暗号化/復号を行います。";
-                    document.getElementById('visual-area').innerHTML = '<div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:2.5em; font-weight:900; color:#10b981; width:100%; text-align:center;">🤝 暗号化通信の確立<br><span style="font-size:0.6em; color:#555;">(HTTPS通信開始)</span></div>';
+                    msg.innerHTML = "<b>www.rarara.jp を確認！</b><br>セッション鍵も共有完了。<br><br><b>以後のHTTPS通信は</b><br><b>このセッション鍵</b>でやり取りします。";
+                    document.getElementById('visual-area').innerHTML = '<div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:2.2em; font-weight:900; color:#10b981; width:100%; text-align:center;">✅ www.rarara.jp を確認<br><span class="session-blink">🔑</span> セッション鍵を共有 <span class="session-blink">🔑</span><br><span style="font-size:0.78em; color:#1e3a8a; font-weight:900;">HTTPSはこのセッション鍵でやり取り</span><br><span style="font-size:0.68em; color:#555;">HTTP + TLS = HTTPS</span></div>';
                     btn.style.display = "none";
                     setTimeout(() => keyAnim.remove(), 500);
-                }, 800);
-            }, 800);
+                }, 1500);
+            }, 1500);
         }
     }
 </script>
-</body>
-</html>
+
+
+</body></html>
